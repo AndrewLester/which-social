@@ -10,6 +10,7 @@ const socialProviders = [
     'Amazon',
     'Solana',
     'LinkedIn',
+    'Twitter',
 ];
 const socialIndicatorClass = 'which-social-provider';
 const socialIndicatorChildClass = 'which-social-provider-child';
