@@ -11,13 +11,6 @@ const socialProviders = [
     'Solana',
     'LinkedIn',
 ];
-// Replace this with a check for provider name in URL hostname?
-const badLinks = new Set([
-    'discord.gg',
-    'github.com',
-    'facebook.com',
-    'instagram.com',
-]);
 const socialIndicatorClass = 'which-social-provider';
 const socialIndicatorChildClass = 'which-social-provider-child';
 const socialObservingClass = 'which-social-potential-provider';
@@ -95,7 +88,7 @@ function getSocialLogins(root) {
         root
     );
     return textNodes
-        .filter(({ node }) => {
+        .filter(({ node, matches }) => {
             const clickableNode =
                 node.parentElement.closest('button, a') || node.parentElement;
 
@@ -108,7 +101,7 @@ function getSocialLogins(root) {
                 return true;
             }
 
-            return !badLinks.has(url.hostname.replace('www.', ''));
+            return !url.hostname.includes(matches[0].toLowerCase());
         })
         .map(({ node, matches }) => {
             return {

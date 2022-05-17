@@ -1,6 +1,6 @@
 {
     "name": "Which Social",
-    "description": "Remembers your login provider for any website.",
+    "description": "Remembers which social media platform you last logged in with for a given site.",
     "version": "1.0",
     "manifest_version": 3,
     "background": {
