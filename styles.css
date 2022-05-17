@@ -1,4 +1,35 @@
+:root {
+    --ws-outline-offset: 2px;
+    --ws-outline-width: 2px;
+    --ws-outline-color: red;
+}
+
 .which-social-provider {
-    outline: 2px solid red !important;
-    outline-offset: 2px;
+    outline: var(--ws-outline-width) solid var(--ws-outline-color) !important;
+    outline-offset: var(--ws-outline-offset) !important;
+    border-bottom-right-radius: 0 !important;
+    margin-bottom: calc(1em + 12px) !important;
+}
+
+.which-social-provider-child {
+    outline: var(--ws-outline-width) solid var(--ws-outline-color) !important;
+    outline-offset: var(--ws-outline-offset) !important;
+    border-bottom-right-radius: 0 !important;
+}
+
+.which-social-message {
+    right: calc(
+        var(--right) - calc(var(--ws-outline-width) + var(--ws-outline-offset))
+    );
+    top: calc(
+        var(--top) + calc(var(--ws-outline-width) + var(--ws-outline-offset))
+    );
+    color: white;
+    background-color: red;
+    padding: 3px;
+    z-index: 5;
+    border-radius: 0px 0px 5px 5px;
+    font-family: sans-serif;
+    font-size: 1rem;
+    pointer-events: none;
 }

@@ -1,71 +1,62 @@
+const socialProviders = [
+    'Google',
+    'Facebook',
+    'Microsoft',
+    'GitHub',
+    'Instagram',
+    'Snapchat',
+    'Discord',
+    'Apple',
+    'Amazon',
+    'Solana',
+    'LinkedIn',
+];
+const badLinks = new Set(['discord.gg', 'github.com']);
 const socialIndicatorClass = 'which-social-provider';
-const socialStorageKey = `${location.href}_social`;
+const socialIndicatorChildClass = 'which-social-provider-child';
+const socialStorageKey = `${location.origin + location.pathname}_social`;
+const socialMessageClass = 'which-social-message';
 
-const socialStorageType = {
-    ID: 'ID',
-    DATASET: 'DATASET',
-    TEXT_CONTENT: 'TEXT_CONTENT',
-};
-
-function getSocialStorageValue(elem) {
-    let value = {
-        value: elem.textContent.trim(),
-        type: socialStorageType.TEXT_CONTENT,
-    };
-
-    // if (elem.dataset) {
-    //     value = {
-    //         value: JSON.stringify(elem.dataset),
-    //         type: socialStorageType.DATASET,
-    //     };
-    // }
-
-    if (elem.id) {
-        value = {
-            value: elem.id,
-            type: socialStorageType.ID,
-        };
-    }
-    return JSON.stringify(value);
+function getSocialTextPattern(providers = socialProviders) {
+    return new RegExp(
+        `(?:(?:(?:(?:(?:Log|Sign) ?(?:in|up))|Continue) with )|^)(${providers.join(
+            '|'
+        )})(?: (?:Log|Sign) ?(?:in|up))?\\.?$`,
+        'i'
+    );
 }
 
-function getSocialElem(callback) {
-    chrome.storage.sync.get([socialStorageKey], (result) => {
-        console.log('Value currently is ', result[socialStorageKey]);
-        if (result === undefined) {
-            callback();
-            return;
-        }
-        const { value, type } = JSON.parse(result[socialStorageKey]);
-        switch (type) {
-            case socialStorageType.ID:
-                callback(document.getElementById(value));
-                break;
-            // case socialStorageType.DATASET:
-            //     callback(elem);
-            //     break;
-            case socialStorageType.TEXT_CONTENT:
-                callback(
-                    getNodesWithTextPattern(
-                        new RegExp(value)
-                    )[0].parentElement.closest('button, a')
-                );
-                break;
-        }
+function getSavedSocial() {
+    return new Promise((resolve) => {
+        chrome.storage.sync.get([socialStorageKey], (result) => {
+            if (
+                result === undefined ||
+                result[socialStorageKey] === undefined
+            ) {
+                resolve(null);
+                return;
+            }
+            const { provider } = JSON.parse(result[socialStorageKey]);
+            resolve(provider);
+        });
     });
 }
 
-function saveSocial(elem) {
-    const value = getSocialStorageValue(elem);
-    chrome.storage.sync.set({ [socialStorageKey]: value }, () => {
-        console.log('Value is set to ' + value);
+function saveSocial({ provider }) {
+    console.log('Saving social to: ', provider);
+    chrome.storage.sync.set({
+        [socialStorageKey]: JSON.stringify({ provider }),
     });
 }
 
-function getNodesWithTextPattern(pattern, root = document.body) {
+function getTextNodesWithPattern(
+    pattern,
+    filterMatches = (m) => m,
+    root = document.body
+) {
     const walker = document.createTreeWalker(
         root,
-        NodeFilter.SHOW_TEXT,
+        NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
         null,
         false
     );
@@ -73,37 +64,185 @@ function getNodesWithTextPattern(pattern, root = document.body) {
     let node;
     const elems = [];
     while ((node = walker.nextNode())) {
-        if (pattern.test(node.textContent)) {
-            console.log('NODE FOUND FOR ', pattern, node);
-            elems.push(node);
+        const matches =
+            node.nodeType === Node.TEXT_NODE
+                ? node.textContent.trim().match(pattern)
+                : node.alt
+                ? node.alt.trim().match(pattern)
+                : undefined;
+        if (matches) {
+            elems.push({
+                node,
+                matches: filterMatches(matches),
+            });
         }
     }
     return elems;
 }
 
-function getLoginElems() {
-    const textNodes = getNodesWithTextPattern(/(Log ?in with|Sign ?in with)/);
-    return textNodes.map((node) => node.parentElement.closest('button, a'));
+function getSocialLogins(root) {
+    const textNodes = getTextNodesWithPattern(
+        getSocialTextPattern(),
+        (matches) => [matches[1]],
+        root
+    );
+    return textNodes
+        .filter(({ node }) => {
+            const clickableNode =
+                node.parentElement.closest('button, a') || node.parentElement;
+
+            if (clickableNode.tagName !== 'A') return true;
+
+            let url;
+            try {
+                url = new URL(clickableNode.href);
+            } catch {
+                return true;
+            }
+
+            return !badLinks.has(url.hostname.replace('www.', ''));
+        })
+        .map(({ node, matches }) => {
+            return {
+                node:
+                    node.parentElement.closest('button, a') ||
+                    node.parentElement,
+                provider: matches[0],
+            };
+        });
 }
 
-function registerClickListeners() {
-    const loginElems = getLoginElems();
+const addedNodes = new Set([]);
 
-    for (const loginElem of loginElems) {
-        loginElem.addEventListener('click', () => saveSocial(loginElem));
+function registerClickListeners(root) {
+    const socialLogins = [...new Set(getSocialLogins(root))].filter(
+        ({ node }) => !addedNodes.has(node)
+    );
+
+    for (const socialLogin of socialLogins) {
+        socialLogin.node.addEventListener('click', () =>
+            saveSocial(socialLogin)
+        );
+        addedNodes.add(socialLogin.node);
+    }
+    if (socialLogins.length > 0) {
+        console.log(
+            `Registered click listeners for ${socialLogins.length} nodes`,
+            socialLogins
+        );
+    }
+    return socialLogins;
+}
+
+function appendSocialMessage(elem) {
+    const wrapper = document.createElement('div');
+    wrapper.textContent = 'Recently used on this site';
+    wrapper.className = socialMessageClass;
+    const wrapperRect = elem.getBoundingClientRect();
+    wrapper.style.setProperty(
+        '--right',
+        `${-window.scrollX + wrapperRect.right - wrapperRect.width}px`
+    );
+    wrapper.style.setProperty(
+        '--top',
+        `${window.scrollY + wrapperRect.top + wrapperRect.height}px`
+    );
+    wrapper.style.position =
+        elem.style.position === 'fixed' ? 'fixed' : 'absolute';
+    document.body.appendChild(wrapper);
+}
+
+function hideSavedSocialIndicator() {
+    const button = document.getElementsByClassName(socialIndicatorClass)[0];
+    const messages = document.getElementsByClassName(socialMessageClass);
+
+    if (messages.length > 0)
+        [...messages].forEach((message) => message.remove());
+    if (button) {
+        button.classList.remove(socialIndicatorClass);
     }
 }
 
-function displaySavedSocialIndicator() {
-    getSocialElem((elem) => {
-        if (!elem) return;
-        elem.classList.add(socialIndicatorClass);
-    });
+async function displaySavedSocialIndicator(socialLogins) {
+    const savedSocial = await getSavedSocial();
+    if (!savedSocial) {
+        console.log('no saved social');
+        return;
+    }
+    console.log('Loaded saved social: ', savedSocial);
+    const socialLogin = socialLogins.find(
+        ({ provider }) => provider === savedSocial
+    );
+
+    if (!socialLogin) return;
+    const { node } = socialLogin;
+
+    if (
+        node.style.display === 'none' ||
+        node.style.visibility === 'hidden' ||
+        node.offsetParent === null
+    ) {
+        console.log('OBSERVE NODE', node);
+        displayObserver.observe(node, { childList: true, subtree: true });
+        return;
+    }
+    console.log('Displayed recently used message on: ', node);
+    if (node.tagName === 'A' && node.firstElementChild)
+        node.firstElementChild.classList.add(socialIndicatorChildClass);
+    node.classList.add(socialIndicatorClass);
+    appendSocialMessage(node);
 }
 
-function setup() {
-    registerClickListeners();
-    displaySavedSocialIndicator();
+let socialLogins = [];
+function setup(root) {
+    socialLogins = registerClickListeners(root);
+    displaySavedSocialIndicator(socialLogins);
 }
 
-setup();
+setTimeout(() => setup(document.body), 500);
+
+const displayObserver = new MutationObserver((mutations) => {
+    console.log('DISPLAY CHANGE', mutations);
+});
+
+const mutationObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+        if (mutation.type !== 'childList') {
+            return;
+        }
+
+        const addedMessage =
+            [...mutation.addedNodes]
+                .filter((node) => node instanceof HTMLElement)
+                .find((node) => node.classList.contains(socialMessageClass)) !==
+            undefined;
+
+        const removedButton =
+            [...mutation.removedNodes]
+                .filter((node) => node instanceof HTMLElement)
+                .find(
+                    (elem) =>
+                        elem.getElementsByClassName(socialIndicatorClass)
+                            .length > 0
+                ) !== undefined;
+        if (!addedMessage && mutation.addedNodes.length > 0) {
+            setup(mutation.target);
+        } else if (removedButton && mutation.removedNodes.length > 0) {
+            hideSavedSocialIndicator();
+        }
+    }
+});
+
+mutationObserver.observe(document.body, { childList: true, subtree: true });
+
+const resizeObserver = new ResizeObserver(async () => {
+    hideSavedSocialIndicator();
+    await sleep(100);
+    displaySavedSocialIndicator(socialLogins);
+});
+
+resizeObserver.observe(document.body);
+
+function sleep(millis) {
+    return new Promise((resolve) => setTimeout(resolve, millis));
+}
