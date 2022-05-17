@@ -139,9 +139,13 @@ function appendSocialMessage(elem) {
     wrapper.textContent = 'Recently used on this site';
     wrapper.className = socialMessageClass;
     const wrapperRect = elem.getBoundingClientRect();
+    console.log(wrapperRect);
     wrapper.style.setProperty(
         '--right',
-        `${-window.scrollX + wrapperRect.right - wrapperRect.width}px`
+        `${
+            -window.scrollX +
+            (document.documentElement.clientWidth - wrapperRect.right)
+        }px`
     );
     wrapper.style.setProperty(
         '--top',
@@ -150,17 +154,6 @@ function appendSocialMessage(elem) {
     wrapper.style.position =
         elem.style.position === 'fixed' ? 'fixed' : 'absolute';
     document.body.appendChild(wrapper);
-}
-
-function hideSavedSocialIndicator() {
-    const button = document.getElementsByClassName(socialIndicatorClass)[0];
-    const messages = document.getElementsByClassName(socialMessageClass);
-
-    if (messages.length > 0)
-        [...messages].forEach((message) => message.remove());
-    if (button) {
-        button.classList.remove(socialIndicatorClass);
-    }
 }
 
 async function displaySavedSocialIndicator(socialLogins) {
@@ -180,7 +173,8 @@ async function displaySavedSocialIndicator(socialLogins) {
     if (
         node.style.display === 'none' ||
         node.style.visibility === 'hidden' ||
-        node.offsetParent === null
+        node.offsetParent === null ||
+        node.whichSocialIndicator
     ) {
         console.log('OBSERVE NODE', node);
         displayObserver.observe(node, { childList: true, subtree: true });
@@ -188,8 +182,9 @@ async function displaySavedSocialIndicator(socialLogins) {
     }
     console.log('Displayed recently used message on: ', node);
     // if (node.tagName === 'A' && node.firstElementChild)
-        // node.firstElementChild.classList.add(socialIndicatorChildClass);
+    // node.firstElementChild.classList.add(socialIndicatorChildClass);
     node.classList.add(socialIndicatorClass);
+    node.whichSocialIndicator = true;
     appendSocialMessage(node);
 }
 
@@ -197,6 +192,19 @@ let socialLogins = [];
 function setup(root) {
     socialLogins = registerClickListeners(root);
     displaySavedSocialIndicator(socialLogins);
+}
+
+function hideSavedSocialIndicator() {
+    console.log('Hiding indicator');
+    const button = document.getElementsByClassName(socialIndicatorClass)[0];
+    const messages = document.getElementsByClassName(socialMessageClass);
+
+    if (messages.length > 0)
+        [...messages].forEach((message) => message.remove());
+    if (button) {
+        button.classList.remove(socialIndicatorClass);
+        button.whichSocialIndicator = false;
+    }
 }
 
 setTimeout(() => setup(document.body), 500);
@@ -228,6 +236,7 @@ const mutationObserver = new MutationObserver((mutations) => {
         if (!addedMessage && mutation.addedNodes.length > 0) {
             setup(mutation.target);
         } else if (removedButton && mutation.removedNodes.length > 0) {
+            console.log('Button removed');
             hideSavedSocialIndicator();
         }
     }
@@ -237,7 +246,7 @@ mutationObserver.observe(document.body, { childList: true, subtree: true });
 
 const resizeObserver = new ResizeObserver(async () => {
     hideSavedSocialIndicator();
-    await sleep(100);
+    await sleep(200); // TODO: Remove this
     displaySavedSocialIndicator(socialLogins);
 });
 
