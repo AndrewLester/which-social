@@ -11,9 +11,17 @@ const socialProviders = [
     'Solana',
     'LinkedIn',
 ];
-const badLinks = new Set(['discord.gg', 'github.com']);
+// Replace this with a check for provider name in URL hostname?
+const badLinks = new Set([
+    'discord.gg',
+    'github.com',
+    'facebook.com',
+    'instagram.com',
+]);
 const socialIndicatorClass = 'which-social-provider';
 const socialIndicatorChildClass = 'which-social-provider-child';
+const socialObservingClass = 'which-social-potential-provider';
+const socialMessageShownClass = 'which-social-message-shown';
 const socialStorageKey = `${location.origin + location.pathname}_social`;
 const socialMessageClass = 'which-social-message';
 
@@ -139,7 +147,6 @@ function appendSocialMessage(elem) {
     wrapper.textContent = 'Recently used on this site';
     wrapper.className = socialMessageClass;
     const wrapperRect = elem.getBoundingClientRect();
-    console.log(wrapperRect);
     wrapper.style.setProperty(
         '--right',
         `${
@@ -156,6 +163,8 @@ function appendSocialMessage(elem) {
     document.body.appendChild(wrapper);
 }
 
+const observing = new Set([]);
+
 async function displaySavedSocialIndicator(socialLogins) {
     const savedSocial = await getSavedSocial();
     if (!savedSocial) {
@@ -166,51 +175,93 @@ async function displaySavedSocialIndicator(socialLogins) {
     const socialLogin = socialLogins.find(
         ({ provider }) => provider === savedSocial
     );
-
-    if (!socialLogin) return;
+    if (!socialLogin) {
+        console.log("This site doesn't support " + savedSocial, socialLogins);
+        return;
+    }
     const { node } = socialLogin;
 
     if (
         node.style.display === 'none' ||
         node.style.visibility === 'hidden' ||
         node.offsetParent === null ||
-        node.whichSocialIndicator
+        node.classList.contains(socialMessageShownClass)
     ) {
-        console.log('OBSERVE NODE', node);
-        displayObserver.observe(node, { childList: true, subtree: true });
+        let reason =
+            node.style.display === 'none'
+                ? 'display'
+                : node.style.visibility === 'hidden'
+                ? 'visibility'
+                : node.offsetParent === null
+                ? 'No parent (not mounted)'
+                : node.classList.contains(socialMessageShownClass)
+                ? 'Already placed indicator'
+                : 'none';
+        console.log('OBSERVE NODE', node, ' reason: ', reason);
+
+        if (observing.has(node)) return;
+
+        observing.add(node);
+        node.classList.add(socialObservingClass);
         return;
     }
     console.log('Displayed recently used message on: ', node);
     // if (node.tagName === 'A' && node.firstElementChild)
     // node.firstElementChild.classList.add(socialIndicatorChildClass);
     node.classList.add(socialIndicatorClass);
-    node.whichSocialIndicator = true;
+    node.classList.remove(socialObservingClass);
+    node.classList.add(socialMessageShownClass);
+    // node.whichSocialIndicator = true;
     appendSocialMessage(node);
 }
 
 let socialLogins = [];
 function setup(root) {
-    socialLogins = registerClickListeners(root);
+    socialLogins.push(...registerClickListeners(root));
     displaySavedSocialIndicator(socialLogins);
 }
 
 function hideSavedSocialIndicator() {
     console.log('Hiding indicator');
-    const button = document.getElementsByClassName(socialIndicatorClass)[0];
+    const buttons = document.getElementsByClassName(socialIndicatorClass);
     const messages = document.getElementsByClassName(socialMessageClass);
 
     if (messages.length > 0)
         [...messages].forEach((message) => message.remove());
-    if (button) {
-        button.classList.remove(socialIndicatorClass);
-        button.whichSocialIndicator = false;
+    if (buttons.length > 0) {
+        [...buttons].forEach((button) =>
+            button.classList.remove(
+                socialIndicatorClass,
+                socialMessageShownClass
+            )
+        );
     }
 }
 
 setTimeout(() => setup(document.body), 500);
 
 const displayObserver = new MutationObserver((mutations) => {
-    console.log('DISPLAY CHANGE', mutations);
+    for (const mutation of mutations) {
+        if (
+            mutation.type !== 'attributes' ||
+            !(mutation.target instanceof HTMLElement)
+        ) {
+            return;
+        }
+
+        const observingChildren =
+            mutation.target.getElementsByClassName(socialObservingClass);
+
+        if (observingChildren.length === 0) return;
+
+        displaySavedSocialIndicator(socialLogins);
+    }
+});
+
+displayObserver.observe(document.body, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style'],
 });
 
 const mutationObserver = new MutationObserver((mutations) => {
