@@ -187,8 +187,8 @@ async function displaySavedSocialIndicator(socialLogins) {
         return;
     }
     console.log('Displayed recently used message on: ', node);
-    if (node.tagName === 'A' && node.firstElementChild)
-        node.firstElementChild.classList.add(socialIndicatorChildClass);
+    // if (node.tagName === 'A' && node.firstElementChild)
+        // node.firstElementChild.classList.add(socialIndicatorChildClass);
     node.classList.add(socialIndicatorClass);
     appendSocialMessage(node);
 }
