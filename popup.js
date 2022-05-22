@@ -165,7 +165,17 @@ function createProviderElem(provider) {
     checkButton.classList.add('icon');
     checkButton.innerHTML = '&check;';
     checkButton.addEventListener('click', async () => {
+        if (!input.value) return;
+
         const providers = await getSocialProviders();
+        if (
+            providers
+                .map((provider) => provider.toLowerCase())
+                .includes(input.value.toLowerCase())
+        ) {
+            return;
+        }
+
         const idx = providers.findIndex((p) => p === provider);
         providers[idx] = input.value;
         provider = input.value;
