@@ -7,5 +7,5 @@ Which Social
 </p>
 
 ## About
-Which Social is a Chrome extension that remembers which social media platform you last logged in with for a given site. Automated and configurable, it does most of the work for you. You can also disable the extension on sites of issue.
+Which Social is a Chrome extension that remembers which social media platform you last logged in with for a given site. Automated and configurable, it does most of the work for you. You can also disable the extension on sites of issue. Inspired by [WhichLogin](https://whichlogin.com/about-us/) which is now gone. 
 
