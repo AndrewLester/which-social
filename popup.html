@@ -1,20 +1,74 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <meta charset="UTF-8" />
         <link rel="stylesheet" href="popup-styles.css" />
     </head>
     <body>
         <main>
+            <h1>Which Social</h1>
+            <p id="social-message">
+                <span>Social for <span id="hostname-display"></span></span>
+                <span id="current-site-social"></span>
+            </p>
             <section>
-                <h1>Settings</h1>
+                <h2>Settings</h2>
                 <label class="setting" for="disable-this-site-checkbox">
                     Disable on this site
                     <input
+                        class="switch"
                         type="checkbox"
                         id="disable-this-site-checkbox"
+                        name="disable-this-site-PAGE_URL"
                         role="switch"
+                        style="--active-track-color: var(--disabled-accent)"
                     />
                 </label>
+                <label class="setting" for="disable-which-social-checkbox">
+                    Disable Which Social
+                    <input
+                        class="switch"
+                        type="checkbox"
+                        id="disable-which-social-checkbox"
+                        name="disable-which-social"
+                        role="switch"
+                        style="--active-track-color: var(--disabled-accent)"
+                    />
+                </label>
+            </section>
+            <section>
+                <h2>Socials</h2>
+                <label class="setting" for="saved-social-color">
+                    Saved social color
+                    <span class="color-input-wrapper">
+                        <input
+                            id="saved-social-color"
+                            name="saved-social-color"
+                            type="color"
+                        />
+                    </span>
+                </label>
+                <label class="setting" for="clear-site-setting">
+                    Clear this site's social
+                    <button id="clear-site-setting">Clear</button>
+                </label>
+                <details>
+                    <summary>Choose social providers</summary>
+                    <div id="social-providers-heading">
+                        <input
+                            id="add-provider-input"
+                            type="text"
+                            placeholder="Add provider"
+                            autocomplete="off"
+                            spellcheck="false"
+                        />
+                        <button class="icon" id="add-social-provider">+</button>
+                    </div>
+                    <div id="social-providers"></div>
+                </details>
+            </section>
+            <section>
+                <button id="refresh-message">Refresh to see changes ⟳</button>
             </section>
         </main>
         <script src="popup.js"></script>

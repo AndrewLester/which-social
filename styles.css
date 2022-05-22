@@ -1,7 +1,8 @@
 :root {
     --ws-outline-offset: 2px;
     --ws-outline-width: 2px;
-    --ws-outline-color: green;
+    --ws-outline-color: var(--which-social-color);
+    --ws-text-color: var(--which-social-text-color);
 }
 
 .which-social-provider {
@@ -24,8 +25,8 @@
     top: calc(
         var(--top) + calc(var(--ws-outline-width) + var(--ws-outline-offset))
     );
-    color: white;
-    background-color: green;
+    color: var(--ws-text-color);
+    background-color: var(--ws-outline-color);
     padding: 3px;
     z-index: 999999999;
     border-radius: 0px 0px 5px 5px;

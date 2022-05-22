@@ -1,25 +1,29 @@
-const socialProviders = [
-    'Google',
-    'Facebook',
-    'Microsoft',
-    'GitHub',
-    'Instagram',
-    'Snapchat',
-    'Discord',
-    'Apple',
-    'Amazon',
-    'Solana',
-    'LinkedIn',
-    'Twitter',
-];
 const socialIndicatorClass = 'which-social-provider';
 const socialIndicatorChildClass = 'which-social-provider-child';
 const socialObservingClass = 'which-social-potential-provider';
 const socialMessageShownClass = 'which-social-message-shown';
-const socialStorageKey = `${location.origin + location.pathname}_social`;
+const socialStorageKey = `${new URL(location.href).hostname}_social`;
+const socialProvidersKey = 'social-providers';
 const socialMessageClass = 'which-social-message';
 
-function getSocialTextPattern(providers = socialProviders) {
+const Setting = {
+    DISABLE_THIS_SITE: 'disable-this-site-PAGE_URL',
+    DISABLE_WHICH_SOCIAL: 'disable-which-social',
+    SAVED_SOCIAL_COLOR: 'saved-social-color',
+};
+
+async function getSettingValue(setting) {
+    const hostname = new URL(location.href).hostname;
+    const storageKey = setting.replace('PAGE_URL', hostname);
+    return new Promise((resolve) => {
+        chrome.storage.sync.get(storageKey, (result) => {
+            if (!result || !result[storageKey]) resolve(null);
+            resolve(result[storageKey]);
+        });
+    });
+}
+
+function getSocialTextPattern(providers) {
     return new RegExp(
         `(?:(?:(?:(?:(?:Log|Sign) ?(?:in|up))|Continue) with )|^)(${providers.join(
             '|'
@@ -31,10 +35,7 @@ function getSocialTextPattern(providers = socialProviders) {
 function getSavedSocial() {
     return new Promise((resolve) => {
         chrome.storage.sync.get([socialStorageKey], (result) => {
-            if (
-                result === undefined ||
-                result[socialStorageKey] === undefined
-            ) {
+            if (!result || !result[socialStorageKey]) {
                 resolve(null);
                 return;
             }
@@ -82,9 +83,9 @@ function getTextNodesWithPattern(
     return elems;
 }
 
-function getSocialLogins(root) {
+function getSocialLogins(root, socialProviders) {
     const textNodes = getTextNodesWithPattern(
-        getSocialTextPattern(),
+        getSocialTextPattern(socialProviders),
         (matches) => [matches[1]],
         root
     );
@@ -116,10 +117,10 @@ function getSocialLogins(root) {
 
 const addedNodes = new Set([]);
 
-function registerClickListeners(root) {
-    const socialLogins = [...new Set(getSocialLogins(root))].filter(
-        ({ node }) => !addedNodes.has(node)
-    );
+function registerClickListeners(root, socialProviders) {
+    const socialLogins = [
+        ...new Set(getSocialLogins(root, socialProviders)),
+    ].filter(({ node }) => !addedNodes.has(node));
 
     for (const socialLogin of socialLogins) {
         socialLogin.node.addEventListener('click', () =>
@@ -210,8 +211,13 @@ async function displaySavedSocialIndicator(socialLogins) {
 }
 
 let socialLogins = [];
-function setup(root) {
-    socialLogins.push(...registerClickListeners(root));
+let socialProviders = [];
+async function applyWhichSocial(root) {
+    socialProviders =
+        socialProviders.length === 0
+            ? await getSettingValue(socialProvidersKey)
+            : socialProviders;
+    socialLogins.push(...registerClickListeners(root, socialProviders));
     displaySavedSocialIndicator(socialLogins);
 }
 
@@ -231,8 +237,6 @@ function hideSavedSocialIndicator() {
         );
     }
 }
-
-setTimeout(() => setup(document.body), 500);
 
 const displayObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
@@ -279,7 +283,7 @@ const mutationObserver = new MutationObserver((mutations) => {
                             .length > 0
                 ) !== undefined;
         if (!addedMessage && mutation.addedNodes.length > 0) {
-            setup(mutation.target);
+            applyWhichSocial(mutation.target);
         } else if (removedButton && mutation.removedNodes.length > 0) {
             console.log('Button removed');
             hideSavedSocialIndicator();
@@ -300,3 +304,39 @@ resizeObserver.observe(document.body);
 function sleep(millis) {
     return new Promise((resolve) => setTimeout(resolve, millis));
 }
+
+const colorThreshold = 186;
+function computeTextColor(color) {
+    color = color.slice(1);
+    const [red, green, blue] = [
+        color.slice(0, 2),
+        color.slice(2, 4),
+        color.slice(4, 6),
+    ].map((hex) => parseInt(hex, 16));
+    if (red * 0.299 + green * 0.587 + blue * 0.114 > colorThreshold) {
+        return '#000';
+    }
+    return '#fff';
+}
+
+async function setup() {
+    const [disableOnThisSite, disableWhichSocial] = await Promise.all([
+        getSettingValue(Setting.DISABLE_THIS_SITE),
+        getSettingValue(Setting.DISABLE_WHICH_SOCIAL),
+    ]);
+    if (disableOnThisSite || disableWhichSocial) return;
+
+    const whichSocialColor = await getSettingValue(Setting.SAVED_SOCIAL_COLOR);
+    const whichSocialTextColor = computeTextColor(whichSocialColor);
+    document.documentElement.style.setProperty(
+        '--which-social-color',
+        whichSocialColor
+    );
+    document.documentElement.style.setProperty(
+        '--which-social-text-color',
+        whichSocialTextColor
+    );
+    applyWhichSocial(document.body);
+}
+
+setup();
