@@ -46,7 +46,6 @@ function getSavedSocial() {
 }
 
 function saveSocial({ provider }) {
-    console.log('Saving social to: ', provider);
     chrome.storage.sync.set({
         [socialStorageKey]: JSON.stringify({ provider }),
     });
@@ -128,12 +127,7 @@ function registerClickListeners(root, socialProviders) {
         );
         addedNodes.add(socialLogin.node);
     }
-    if (socialLogins.length > 0) {
-        console.log(
-            `Registered click listeners for ${socialLogins.length} nodes`,
-            socialLogins
-        );
-    }
+
     return socialLogins;
 }
 
@@ -163,15 +157,13 @@ const observing = new Set([]);
 async function displaySavedSocialIndicator(socialLogins) {
     const savedSocial = await getSavedSocial();
     if (!savedSocial) {
-        console.log('no saved social');
         return;
     }
-    console.log('Loaded saved social: ', savedSocial);
+
     const socialLogin = socialLogins.find(
         ({ provider }) => provider === savedSocial
     );
     if (!socialLogin) {
-        console.log("This site doesn't support " + savedSocial, socialLogins);
         return;
     }
     const { node } = socialLogin;
@@ -192,7 +184,6 @@ async function displaySavedSocialIndicator(socialLogins) {
                 : node.classList.contains(socialMessageShownClass)
                 ? 'Already placed indicator'
                 : 'none';
-        console.log('OBSERVE NODE', node, ' reason: ', reason);
 
         if (observing.has(node)) return;
 
@@ -200,7 +191,7 @@ async function displaySavedSocialIndicator(socialLogins) {
         node.classList.add(socialObservingClass);
         return;
     }
-    console.log('Displayed recently used message on: ', node);
+
     // if (node.tagName === 'A' && node.firstElementChild)
     // node.firstElementChild.classList.add(socialIndicatorChildClass);
     node.classList.add(socialIndicatorClass);
@@ -222,7 +213,6 @@ async function applyWhichSocial(root) {
 }
 
 function hideSavedSocialIndicator() {
-    console.log('Hiding indicator');
     const buttons = document.getElementsByClassName(socialIndicatorClass);
     const messages = document.getElementsByClassName(socialMessageClass);
 
@@ -285,7 +275,6 @@ const mutationObserver = new MutationObserver((mutations) => {
         if (!addedMessage && mutation.addedNodes.length > 0) {
             applyWhichSocial(mutation.target);
         } else if (removedButton && mutation.removedNodes.length > 0) {
-            console.log('Button removed');
             hideSavedSocialIndicator();
         }
     }
