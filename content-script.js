@@ -246,12 +246,6 @@ const displayObserver = new MutationObserver((mutations) => {
     }
 });
 
-displayObserver.observe(document.body, {
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['style'],
-});
-
 const mutationObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
         if (mutation.type !== 'childList') {
@@ -280,15 +274,11 @@ const mutationObserver = new MutationObserver((mutations) => {
     }
 });
 
-mutationObserver.observe(document.body, { childList: true, subtree: true });
-
 const resizeObserver = new ResizeObserver(async () => {
     hideSavedSocialIndicator();
     await sleep(200); // TODO: Remove this
     displaySavedSocialIndicator(socialLogins);
 });
-
-resizeObserver.observe(document.body);
 
 function sleep(millis) {
     return new Promise((resolve) => setTimeout(resolve, millis));
@@ -326,6 +316,13 @@ async function setup() {
         whichSocialTextColor
     );
     applyWhichSocial(document.body);
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
+    resizeObserver.observe(document.body);
+    displayObserver.observe(document.body, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style'],
+    });
 }
 
 setup();
